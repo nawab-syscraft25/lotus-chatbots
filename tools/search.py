@@ -25,7 +25,7 @@ LOTUS_API_HEADERS = {
 }
 
 async_client = httpx.AsyncClient(timeout=10.0)
-PRODUCT_PROCESS_LIMIT = 3
+PRODUCT_PROCESS_LIMIT = 4
 
 def extract_product_category_for_api(query: str) -> str:
     # ... (same as provided)
@@ -158,7 +158,9 @@ async def search_lotus_products(query: str, limit: int = 10) -> List[Dict]:
                 "in_stock": product_detail.get("instock", "").lower() == "yes",
                 "stock_status": "" if product_detail.get("instock", "").lower() == "yes" else "Out of Stock",
                 "features": features,
-                "score": 0.0
+                "score": 0.0,
+                "product_sku" : product_detail.get("product_sku", 'N/A'),
+                "product_id" : product_detail.get("product_id", 'N/A')
             })
         return processed_products
     except Exception as e:

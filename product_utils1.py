@@ -57,6 +57,7 @@ def get_product_details(product_id: str) -> Tuple[bool, Optional[Dict]]:
         instock = detail.get("instock", "").lower()
         out_of_stock = detail.get("out_of_stock", "0")
         quantity = int(detail.get("product_quantity", "0"))
+        product_sku = detail.get("product_sku", "")
 
         is_in_stock = (
             instock == "yes" and
@@ -64,7 +65,7 @@ def get_product_details(product_id: str) -> Tuple[bool, Optional[Dict]]:
             quantity > 0
         )
 
-        return is_in_stock, detail
+        return is_in_stock, detail, product_sku
 
     except requests.exceptions.RequestException as e:
         print(f"API request failed: {str(e)}")

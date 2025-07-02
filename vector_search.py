@@ -229,7 +229,7 @@ async def search_vector_db_async(query: str, top_k: int = 5) -> Dict[str, Any]:
             ),
         )
         
-        # Process all matches
+        # Process all matches (check stock for all, regardless of filters)
         tasks = [process_product_match(match) for match in response.get("matches", [])]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
@@ -242,10 +242,10 @@ async def search_vector_db_async(query: str, top_k: int = 5) -> Dict[str, Any]:
             if result is not None:
                 valid_results.append(result)
 
-        # Apply price filtering in application code
+        # Apply price filtering in application code (after stock check)
+        filtered_results = []
         if price_filter:
             logger.info(f"Applying price filter: {price_filter}")
-            filtered_results = []
             for result in valid_results:
                 price = parse_price(result.get('price', ''))
                 if price is not None:
@@ -255,23 +255,23 @@ async def search_vector_db_async(query: str, top_k: int = 5) -> Dict[str, Any]:
                         in_range = False
                     if "$gte" in price_filter and price < price_filter["$gte"]:
                         in_range = False
-                    
                     if in_range:
                         filtered_results.append(result)
                 else:
                     # If we can't parse the price, include it anyway
                     filtered_results.append(result)
-            
-            valid_results = filtered_results
-            logger.info(f"After price filtering: {len(valid_results)} results")
+            logger.info(f"After price filtering: {len(filtered_results)} results")
+        else:
+            filtered_results = valid_results
 
         # Sort results: in-stock first, then by relevance score
         sorted_results = sorted(
-            valid_results,
+            filtered_results,
             key=lambda x: (not x["in_stock"], -x["score"]),
             reverse=False
         )
 
+        # Always return up to MAX_RESULTS, in-stock first, but include out-of-stock if not enough in-stock
         return {
             "type": "general_search",
             "results": sorted_results[:MAX_RESULTS]

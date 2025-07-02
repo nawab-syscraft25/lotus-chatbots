@@ -148,8 +148,9 @@ class ChatBot {
     addProductCard(product) {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'product-card fade-in';
-        const words = product.name.split(' ');
-        const productName = words.length > 6 ? words.slice(0, 6).join(' ') + '...' : product.name
+        const safeName = product.name || 'Product';
+        const words = safeName.split(' ');
+        const productName = words.length > 6 ? words.slice(0, 6).join(' ') + '...' : safeName
 
         // Use image field, fallback to first_image if needed
         const imageUrl = product.image || product.first_image || '';
@@ -240,11 +241,30 @@ class ChatBot {
                 if (data.status === "success" && data.data) {
                     const answer = data.data.answer;
                     const products = data.data.products;
+                    const comparison = data.data.comparison;
                     const end = data.data.end;
 
                     if (answer) this.addMessage(answer, 'bot');
                     if (products && Array.isArray(products)) {
                         products.forEach(product => this.addProductCard(product));
+                    }
+                    if (comparison && Array.isArray(comparison)) {
+                        comparison.forEach(item => {
+                            let compMsg = `
+                            <div class="max-w-xl mx-auto p-2">
+                              <div class="bg-white shadow rounded-xl p-4 border border-gray-200">
+                                <div class="font-bold mb-2 text-gray-800">
+                                  Comparison: <span class="text-blue-700">${item.name}</span> <span class="text-gray-500">vs</span> <span class="text-green-700">${item.vs_name}</span>
+                                </div>
+                                <ul class="text-sm text-gray-700 list-disc ml-5 space-y-1 mb-2">
+                                  ${item.differences.map(diff => `<li>${diff}</li>`).join('')}
+                                </ul>
+                                <div class="text-xs text-gray-500 mt-2"><em>Would you like to purchase one or need further details?</em></div>
+                              </div>
+                            </div>
+                            `;
+                            this.addMessage(compMsg, 'bot');
+                        });
                     }
                     if (end) this.addMessage(end, 'bot');
                 } else if (data.status === "error" && data.data) {
