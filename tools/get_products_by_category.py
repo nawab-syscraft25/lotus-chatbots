@@ -36,7 +36,9 @@ async def get_products_by_category(
         # print("Raw instore:", data.get("data", {}).get("cat_detail", {}).get("instore", []))
         # Only return in-stock products
         instore = data.get("data", {}).get("cat_detail", {}).get("instore", [])
-        in_stock = [prod for prod in instore if str(prod.get("product_quantity", "0")) != "0"]
+        if not isinstance(instore, list):
+            instore = []
+        in_stock = [prod for prod in instore if isinstance(prod, dict) and str(prod.get("product_quantity", "0")) != "0"]
         product_ids = [prod["product_id"] for prod in in_stock if "product_id" in prod]
         # Fetch full product details for each product_id
         tasks = [get_product_details(pid) for pid in product_ids]

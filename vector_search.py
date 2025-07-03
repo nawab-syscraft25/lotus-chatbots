@@ -181,16 +181,10 @@ async def process_product_match(match: Dict[str, Any]) -> Optional[Dict[str, Any
 
         # Check stock status with proper error handling
         try:
-            stock_result = await check_stock_status_async(product_link)
-            if isinstance(stock_result, tuple) and len(stock_result) >= 2:
-                is_in_stock, first_image = stock_result[0], stock_result[1]
-            else:
-                # Fallback if the result is not as expected
-                logger.warning(f"Unexpected stock result format: {stock_result}")
-                is_in_stock, first_image = False, None
+            is_in_stock, first_image, stock_error = await check_stock_status_async(product_link)
         except Exception as e:
             logger.error(f"Error checking stock for {product_link}: {e}")
-            is_in_stock, first_image = False, None
+            is_in_stock, first_image, stock_error = False, None, str(e)
 
         return {
             "name": metadata.get("product_name", ""),
@@ -201,8 +195,8 @@ async def process_product_match(match: Dict[str, Any]) -> Optional[Dict[str, Any
             "score": match.get("score", 0),
             "in_stock": is_in_stock,
             "stock_status": "✅ In Stock" if is_in_stock else "❌ Out of Stock",
-            "stock_message": "" if is_in_stock else "Product not available online!\nVisit your nearest store to check for best offline deals.",
-            "first_image": first_image or "Image not available"
+            "stock_message": "" if is_in_stock else (stock_error or "Product not available online!\nVisit your nearest store to check for best offline deals."),
+            "image": first_image or "/static/img/no-image.png"
         }
     except Exception as e:
         logger.error(f"Error processing product match: {e}")
@@ -272,6 +266,12 @@ async def search_vector_db_async(query: str, top_k: int = 5) -> Dict[str, Any]:
         )
 
         # Always return up to MAX_RESULTS, in-stock first, but include out-of-stock if not enough in-stock
+        if not sorted_results:
+            return {
+                "type": "general_search",
+                "results": [],
+                "message": "No products found for your query. Please try a different keyword or check back later."
+            }
         return {
             "type": "general_search",
             "results": sorted_results[:MAX_RESULTS]
