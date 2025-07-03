@@ -9,7 +9,7 @@ import json
 import traceback
 import sys
 sys.path.append('.')
-from tools.check_category import check_category
+# from tools.check_category import check_category
 from tools.get_products_by_category import get_products_by_category
 from vector_search import extract_price_filter, parse_price
 
@@ -62,6 +62,7 @@ LOTUS_SYSTEM_PROMPT = (
     "    \"end\": \"...\""
     "  }"
     "}"
+    "For any product search, listing, or price query, you MUST use the available tools and never generate product data yourself. "
 )
 
 # Comprehensive category and subcategory mapping
@@ -246,149 +247,93 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
     if category_slug and price_filter:
         # If subcategory is present, check it first
         if subcategory_slug:
-            subcat_check = await check_category(subcategory_slug, maincat=category_slug)
-            if subcat_check and subcat_check.get('data', {}).get('exists', True):
-                queryStr = build_queryStr_from_price_filter(price_filter)
-                products = await get_products_by_category(category=category_slug, subcategory=subcategory_slug, queryStr=queryStr)
-                # Fallback: if no products found, try without subcategory
-                if not products:
-                    products = await get_products_by_category(category=category_slug, subcategory="", queryStr=queryStr)
-                    if products:
-                        filtered = []
-                        for prod in products:
-                            price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
-                            if price is None:
-                                continue
-                            in_range = True
-                            if "$lte" in price_filter and price > price_filter["$lte"]:
-                                in_range = False
-                            if "$gte" in price_filter and price < price_filter["$gte"]:
-                                in_range = False
-                            if in_range:
-                                filtered.append(prod)
-                        if not filtered:
-                            return {
-                                "status": "success",
-                                "data": {
-                                    "answer": f"Sorry, there are currently no {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                                    "products": [],
-                                    "end": ""
-                                }
-                            }
-                        print(f"Products after filtering: {len(filtered)}")
-                        for prod in filtered:
-                            print(prod)
+            queryStr = build_queryStr_from_price_filter(price_filter)
+            products = await get_products_by_category(category=category_slug, subcategory=subcategory_slug, queryStr=queryStr)
+            # Fallback: if no products found, try without subcategory
+            if not products:
+                products = await get_products_by_category(category=category_slug, subcategory="", queryStr=queryStr)
+                if products:
+                    filtered = []
+                    for prod in products:
+                        price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
+                        if price is None:
+                            continue
+                        in_range = True
+                        if "$lte" in price_filter and price > price_filter["$lte"]:
+                            in_range = False
+                        if "$gte" in price_filter and price < price_filter["$gte"]:
+                            in_range = False
+                        if in_range:
+                            filtered.append(prod)
+                    if not filtered:
                         return {
                             "status": "success",
                             "data": {
-                                "answer": f"Here are some {category_slug.replace('-', ' ')}s within your price range:",
-                                "products": filtered,
+                                "answer": f"Sorry, there are currently no {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+                                "products": [],
                                 "end": ""
                             }
                         }
+                    print(f"Products after filtering: {len(filtered)}")
+                    for prod in filtered:
+                        print(prod)
                     return {
                         "status": "success",
                         "data": {
-                            "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s or {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                            "products": [],
+                            "answer": f"Here are some {category_slug.replace('-', ' ')}s within your price range:",
+                            "products": filtered,
                             "end": ""
                         }
                     }
-                if not products:
-                    return {
-                        "status": "success",
-                        "data": {
-                            "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                            "products": [],
-                            "end": ""
-                        }
-                    }
-                filtered = []
-                for prod in products:
-                    price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
-                    if price is None:
-                        continue
-                    in_range = True
-                    if "$lte" in price_filter and price > price_filter["$lte"]:
-                        in_range = False
-                    if "$gte" in price_filter and price < price_filter["$gte"]:
-                        in_range = False
-                    if in_range:
-                        filtered.append(prod)
-                if not filtered:
-                    return {
-                        "status": "success",
-                        "data": {
-                            "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                            "products": [],
-                            "end": ""
-                        }
-                    }
-                print(f"Products after filtering: {len(filtered)}")
-                for prod in filtered:
-                    print(prod)
                 return {
                     "status": "success",
                     "data": {
-                        "answer": f"Here are some {subcategory_slug.replace('-', ' ')}s within your price range:",
-                        "products": filtered,
+                        "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s or {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+                        "products": [],
                         "end": ""
                     }
                 }
-        # Fallback to just main category if no subcategory or subcategory doesn't exist
-        cat_check = await check_category(category_slug)
-        if not cat_check or not cat_check.get('data', {}).get('exists', True):
+            if not products:
+                return {
+                    "status": "success",
+                    "data": {
+                        "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+                        "products": [],
+                        "end": ""
+                    }
+                }
+            filtered = []
+            for prod in products:
+                price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
+                if price is None:
+                    continue
+                in_range = True
+                if "$lte" in price_filter and price > price_filter["$lte"]:
+                    in_range = False
+                if "$gte" in price_filter and price < price_filter["$gte"]:
+                    in_range = False
+                if in_range:
+                    filtered.append(prod)
+            if not filtered:
+                return {
+                    "status": "success",
+                    "data": {
+                        "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+                        "products": [],
+                        "end": ""
+                    }
+                }
+            print(f"Products after filtering: {len(filtered)}")
+            for prod in filtered:
+                print(prod)
             return {
                 "status": "success",
                 "data": {
-                    "answer": f"Sorry, the category '{category_slug}' does not exist.",
-                    "products": [],
+                    "answer": f"Here are some {subcategory_slug.replace('-', ' ')}s within your price range:",
+                    "products": filtered,
                     "end": ""
                 }
             }
-        queryStr = build_queryStr_from_price_filter(price_filter)
-        products = await get_products_by_category(category=category_slug, queryStr=queryStr)
-        if not products:
-            return {
-                "status": "success",
-                "data": {
-                    "answer": f"Sorry, there are currently no {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                    "products": [],
-                    "end": ""
-                }
-            }
-        filtered = []
-        for prod in products:
-            price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
-            if price is None:
-                continue
-            in_range = True
-            if "$lte" in price_filter and price > price_filter["$lte"]:
-                in_range = False
-            if "$gte" in price_filter and price < price_filter["$gte"]:
-                in_range = False
-            if in_range:
-                filtered.append(prod)
-        if not filtered:
-            return {
-                "status": "success",
-                "data": {
-                    "answer": f"Sorry, there are currently no {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                    "products": [],
-                    "end": ""
-                }
-            }
-        print(f"Products after filtering: {len(filtered)}")
-        for prod in filtered:
-            print(prod)
-        return {
-            "status": "success",
-            "data": {
-                "answer": f"Here are some {category_slug.replace('-', ' ')}s within your price range:",
-                "products": filtered,
-                "end": ""
-            }
-        }
     # Prepare conversation history for OpenAI
     history = memory.get("history", [])
     # Always start with the system prompt
@@ -526,25 +471,16 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
     else:
         # Normal chat, no tool call - extract JSON from response
         final_json = extract_json_from_response(reply.content)
-        if final_json is None:
-            # Retry with a stricter prompt
-            retry_prompt = (
-                "Your previous response was not valid JSON. "
-                "Please respond ONLY with a valid JSON object as instructed in the system prompt."
-            )
-            messages.append({"role": "user", "content": retry_prompt})
-            response_retry = openai.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-            )
-            final_reply = response_retry.choices[0].message.content
-            final_json = extract_json_from_response(final_reply)
-            if final_json is None:
-                # Still failed, return error
+        # If the LLM returned a products list but did not use a tool, ignore it and return an error
+        if final_json and isinstance(final_json, dict):
+            data = final_json.get("data", {})
+            products = data.get("products")
+            # If products exist but no tool was called, treat as hallucination
+            if products and not reply.function_call:
                 final_json = {
                     "status": "error",
                     "data": {
-                        "answer": "Sorry, I could not process the response properly.",
+                        "answer": "Sorry, I could not process the response properly. Please try rephrasing your request.",
                         "products": [],
                         "end": ""
                     }
@@ -570,14 +506,6 @@ async def get_products_by_category_with_price_filter(user_query, subcategory=Non
     if not category_slug:
         return {"error": "Sorry, I couldn't find a matching category for your request."}
 
-    # Check if category exists
-    cat_check = await check_category(category_slug)
-    if not cat_check or not cat_check.get('data', {}).get('exists', True):
-        return {"error": f"Sorry, the category '{category_slug}' does not exist."}
-
-    # Extract price filter
-    price_filter = extract_price_filter(user_query)
-
     # Get products by category
     products = await get_products_by_category(
         category=category_slug,
@@ -589,6 +517,7 @@ async def get_products_by_category_with_price_filter(user_query, subcategory=Non
         return {"error": "No products found in this category."}
 
     # Apply price filter if present
+    price_filter = extract_price_filter(user_query)
     if price_filter:
         filtered = []
         for prod in products:

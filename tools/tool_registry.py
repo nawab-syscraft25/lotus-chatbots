@@ -19,7 +19,7 @@ tool_registry = {
     "check_product_delivery": (check_product_delivery, check_product_delivery_schema),
     "check_near_stores": (check_near_stores, check_near_stores_schema),
     "get_products_by_category": (get_products_by_category, get_products_by_category_schema),
-    "check_category": (check_category, check_category_schema),
+    # "check_category": (check_category, check_category_schema),
 }
 
 def is_authenticated(memory: dict) -> bool:

@@ -66,11 +66,16 @@ def get_cached_embedding(query: str) -> List[float]:
     return model.encode([query])[0].tolist()
 
 def _k_to_int(text: str) -> int:
-    """Convert text with 'k' suffix to integer"""
-    text = text.replace(",", "").lower()
-    if text.endswith("k"):
-        return int(float(text[:-1]) * 1_000)
-    return int(text)
+    """Convert text with 'k' suffix to integer. If text is empty or invalid, return 0."""
+    text = text.replace(",", "").lower().strip()
+    if not text:
+        return 0
+    try:
+        if text.endswith("k"):
+            return int(float(text[:-1]) * 1_000)
+        return int(text)
+    except Exception:
+        return 0
 
 def extract_price_filter(query: str) -> Optional[dict]:
     """Extract price filter from query with improved pattern matching"""
