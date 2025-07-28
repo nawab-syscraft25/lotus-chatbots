@@ -250,10 +250,296 @@ def extract_json_from_response(text):
     # If still not valid, return None to trigger a retry
     return None
 
-async def chat_with_agent(message: str, session_id: str, memory: dict):
+# from memory.memory_store import get_session_memory, set_session_memory, is_authenticated
+
+# async def chat_with_agent(message: str, session_id: str):
+#     """
+#     Orchestrate chat with OpenAI GPT-4o, handle tool-calling, and manage memory.
+#     """
+#     memory = get_session_memory(session_id)
+#     set_session_memory(session_id, memory)
+#     # Extract category and subcategory
+#     category_slug, subcategory_slug = extract_category_and_subcategory(message)
+
+#     # Use memory if not found in current message
+#     if not category_slug:
+#         category_slug = memory.get("last_category")
+#     if not subcategory_slug:
+#         subcategory_slug = memory.get("last_subcategory")
+#     price_filter = extract_price_filter(message)
+#     def build_queryStr_from_price_filter(price_filter):
+#         if not price_filter:
+#             # If no filter, use full range
+#             return "price=[0,100000]"
+#         min_val = price_filter.get("$gte")
+#         max_val = price_filter.get("$lte")
+#         if min_val is None:
+#             min_val = 0
+#         if max_val is None:
+#             max_val = min_val + 100000 if min_val is not None else 100000
+#         return f"price=[{min_val},{max_val}]"
+
+#     # Subcategory-aware logic
+#     if category_slug and price_filter:
+#         # If subcategory is present, check it first
+#         if subcategory_slug:
+#             queryStr = build_queryStr_from_price_filter(price_filter)
+#             products = await get_products_by_category(category=category_slug, subcategory=subcategory_slug, queryStr=queryStr)
+#             # Fallback: if no products found, try without subcategory
+#             if not products:
+#                 products = await get_products_by_category(category=category_slug, subcategory="", queryStr=queryStr)
+#                 if products:
+#                     filtered = []
+#                     for prod in products:
+#                         price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
+#                         if price is None:
+#                             continue
+#                         in_range = True
+#                         if "$lte" in price_filter and price > price_filter["$lte"]:
+#                             in_range = False
+#                         if "$gte" in price_filter and price < price_filter["$gte"]:
+#                             in_range = False
+#                         if in_range:
+#                             filtered.append(prod)
+#                     if not filtered:
+#                         return {
+#                             "status": "success",
+#                             "data": {
+#                                 "answer": f"Sorry, there are currently no {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+#                                 "products": [],
+#                                 "end": ""
+#                             }
+#                         }
+#                     print(f"Products after filtering: {len(filtered)}")
+#                     for prod in filtered:
+#                         print(prod)
+#                     return {
+#                         "status": "success",
+#                         "data": {
+#                             "answer": f"Here are some {category_slug.replace('-', ' ')}s within your price range:",
+#                             "products": filtered,
+#                             "end": ""
+#                         }
+#                     }
+#                 return {
+#                     "status": "success",
+#                     "data": {
+#                         "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s or {category_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+#                         "products": [],
+#                         "end": ""
+#                     }
+#                 }
+#             if not products:
+#                 return {
+#                     "status": "success",
+#                     "data": {
+#                         "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+#                         "products": [],
+#                         "end": ""
+#                     }
+#                 }
+#             filtered = []
+#             for prod in products:
+#                 price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
+#                 if price is None:
+#                     continue
+#                 in_range = True
+#                 if "$lte" in price_filter and price > price_filter["$lte"]:
+#                     in_range = False
+#                 if "$gte" in price_filter and price < price_filter["$gte"]:
+#                     in_range = False
+#                 if in_range:
+#                     filtered.append(prod)
+#             if not filtered:
+#                 return {
+#                     "status": "success",
+#                     "data": {
+#                         "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
+#                         "products": [],
+#                         "end": ""
+#                     }
+#                 }
+#             print(f"Products after filtering: {len(filtered)}")
+#             for prod in filtered:
+#                 print(prod)
+#             return {
+#                 "status": "success",
+#                 "data": {
+#                     "answer": f"Here are some {subcategory_slug.replace('-', ' ')}s within your price range:",
+#                     "products": filtered,
+#                     "end": ""
+#                 }
+#             }
+#     # Prepare conversation history for OpenAI
+#     history = memory.get("history", [])
+#     # Always start with the system prompt
+#     # Only include the last 2 conversation turns (user and assistant) from history
+#     last_two_turns = []
+#     if history:
+#         # Find the last two user/assistant pairs
+#         # Each turn is a dict with 'role' and 'content'
+#         # We'll take up to the last 8 messages (user, assistant, user, assistant)
+#         last_two_turns = history[-8:]
+#     messages = (
+#         ([{"role": "system", "content": LOTUS_SYSTEM_PROMPT}]) +
+#         last_two_turns +
+#         [{"role": "user", "content": message}]
+#     )
+
+#     # Prepare function schemas for OpenAI
+#     function_schemas = [schema for _, schema in tool_registry.values()]
+
+#     # Call OpenAI with function-calling enabled
+#     response = openai.chat.completions.create(
+#         model="gpt-4o",
+#         messages=messages,
+#         functions=function_schemas,
+#         function_call="auto"
+#     )
+#     reply = response.choices[0].message
+
+#     # If the LLM wants to call a function/tool
+#     if reply.function_call:
+#         func_name = reply.function_call.name
+#         func_args = reply.function_call.arguments
+#         tool_func, _ = tool_registry.get(func_name, (None, None))
+#         if tool_func is None:
+#             tool_response = {"error": f"Tool '{func_name}' not found."}
+#         else:
+#             try:
+#                 parsed_args = json.loads(func_args) if isinstance(func_args, str) else func_args
+
+#                 # Only refine for get_products_by_category if category is missing
+#                 if func_name == "get_products_by_category":
+#                     if not parsed_args.get("category") and memory.get("last_category"):
+#                         # Synthesize a query using last category/subcategory and current message
+#                         last_cat = memory["last_category"].replace("-", " ")
+#                         last_subcat = memory.get("last_subcategory", "")
+#                         if last_subcat:
+#                             last_subcat = last_subcat.replace("-", " ")
+#                             synthetic_query = f"{last_cat} {last_subcat} {message}"
+#                         else:
+#                             synthetic_query = f"{last_cat} {message}"
+#                         # Re-extract category/subcategory/price from the synthetic query
+#                         category_slug, subcategory_slug = extract_category_and_subcategory(synthetic_query)
+#                         price_filter = extract_price_filter(synthetic_query)
+#                         # Update parsed_args accordingly
+#                         parsed_args["category"] = category_slug
+#                         if subcategory_slug:
+#                             parsed_args["subcategory"] = subcategory_slug
+#                         # Optionally update queryStr if you use it
+
+#                 # Inject auth_token from memory for get_orders if not present
+#                 if func_name == "get_orders":
+#                     if "auth_token" not in parsed_args or not parsed_args["auth_token"]:
+#                         parsed_args["auth_token"] = memory.get("auth_token")
+#                 # Await async tools
+#                 if asyncio.iscoroutinefunction(tool_func):
+#                     tool_response = await tool_func(**parsed_args)
+#                 else:
+#                     tool_response = tool_func(**parsed_args)
+#             except Exception as e:
+#                 tool_response = {"error": str(e)}
+#         # Add tool call and result to messages
+#         messages.append({
+#             "role": "assistant",
+#             "content": None,
+#             "function_call": {
+#                 "name": func_name,
+#                 "arguments": func_args
+#             }
+#         })
+#         messages.append({
+#             "role": "function",
+#             "name": func_name,
+#             "content": str(tool_response)
+#         })
+#         # Call LLM again to generate the final response
+#         response2 = openai.chat.completions.create(
+#             model="gpt-4o",
+#             messages=messages,
+#         )
+#         final_reply = response2.choices[0].message.content
+#         # Extract JSON from the response
+#         final_json = extract_json_from_response(final_reply)
+#         if final_json is None:
+#             # Retry with a stricter prompt
+#             retry_prompt = (
+#                 "Your previous response was not valid JSON. "
+#                 "Please respond ONLY with a valid JSON object as instructed in the system prompt."
+#             )
+#             messages.append({"role": "user", "content": retry_prompt})
+#             response_retry = openai.chat.completions.create(
+#                 model="gpt-4o",
+#                 messages=messages,
+#             )
+#             final_reply = response_retry.choices[0].message.content
+#             print(final_reply)
+#             final_json = extract_json_from_response(final_reply)
+#             print(final_json)
+
+#             if final_json is None:
+#                 # Still failed, return error
+#                 return {
+#                     "status": "error",
+#                     "data": {
+#                         "answer": "Sorry, I could not process the response properly.",
+#                         "products": [],
+#                         "end": ""
+#                     }
+#                 }
+#         # Update memory
+#         memory["history"] = messages + [{"role": "assistant", "content": final_reply}]
+#         if func_name in ["verify_otp", "sign_in"] and tool_response.get("error") == "0":
+#             auth_token = (
+#                 tool_response.get("auth_token") or
+#                 (tool_response.get("data", {}).get("auth_token") if isinstance(tool_response.get("data"), dict) else None)
+#             )
+#             if auth_token:
+#                 memory["auth_token"] = auth_token
+#                 memory["phone"] = parsed_args.get("phone")
+#                 memory["is_authenticated"] = True
+#                 if "data" in tool_response:
+#                     memory["user_data"] = tool_response["data"]
+#         # After a successful product search, update memory with last used category/subcategory
+#         if category_slug:
+#             memory["last_category"] = category_slug
+#         if subcategory_slug:
+#             memory["last_subcategory"] = subcategory_slug
+#         return final_json
+#     else:
+#         # Normal chat, no tool call - extract JSON from response
+#         final_json = extract_json_from_response(reply.content)
+#         # If the LLM returned a products list but did not use a tool, ignore it and return an error
+#         if final_json and isinstance(final_json, dict):
+#             data = final_json.get("data", {})
+#             products = data.get("products")
+#             # If products exist but no tool was called, treat as hallucination
+#             print(products)
+#             if products and not reply.function_call:
+#                 final_json = {
+#                     "status": "error",
+#                     "data": {
+#                         "answer": "Sorry, I could not process the response properly. Please try rephrasing your request.",
+#                         "products": [],
+#                         "end": ""
+#                     }
+#                 }
+#         # Update memory
+#         memory["history"] = messages + [{"role": "assistant", "content": reply.content}]
+#         return final_json
+
+from memory.memory_store import get_session_memory, set_session_memory, is_authenticated
+import json
+import asyncio
+
+async def chat_with_agent(message: str, session_id: str):
     """
     Orchestrate chat with OpenAI GPT-4o, handle tool-calling, and manage memory.
     """
+    # Get current session memory
+    memory = get_session_memory(session_id)
+    
     # Extract category and subcategory
     category_slug, subcategory_slug = extract_category_and_subcategory(message)
 
@@ -262,7 +548,9 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
         category_slug = memory.get("last_category")
     if not subcategory_slug:
         subcategory_slug = memory.get("last_subcategory")
+    
     price_filter = extract_price_filter(message)
+    
     def build_queryStr_from_price_filter(price_filter):
         if not price_filter:
             # If no filter, use full range
@@ -275,29 +563,25 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
             max_val = min_val + 100000 if min_val is not None else 100000
         return f"price=[{min_val},{max_val}]"
 
-    # Subcategory-aware logic
+    # Subcategory-aware logic - direct product search with price filter
     if category_slug and price_filter:
         # If subcategory is present, check it first
         if subcategory_slug:
             queryStr = build_queryStr_from_price_filter(price_filter)
             products = await get_products_by_category(category=category_slug, subcategory=subcategory_slug, queryStr=queryStr)
+            
             # Fallback: if no products found, try without subcategory
             if not products:
                 products = await get_products_by_category(category=category_slug, subcategory="", queryStr=queryStr)
                 if products:
-                    filtered = []
-                    for prod in products:
-                        price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
-                        if price is None:
-                            continue
-                        in_range = True
-                        if "$lte" in price_filter and price > price_filter["$lte"]:
-                            in_range = False
-                        if "$gte" in price_filter and price < price_filter["$gte"]:
-                            in_range = False
-                        if in_range:
-                            filtered.append(prod)
+                    filtered = filter_products_by_price(products, price_filter)
                     if not filtered:
+                        # Update memory and return
+                        memory["last_category"] = category_slug
+                        if subcategory_slug:
+                            memory["last_subcategory"] = subcategory_slug
+                        set_session_memory(session_id, memory)
+                        
                         return {
                             "status": "success",
                             "data": {
@@ -306,9 +590,13 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
                                 "end": ""
                             }
                         }
-                    print(f"Products after filtering: {len(filtered)}")
-                    for prod in filtered:
-                        print(prod)
+                    
+                    # Update memory and return filtered products
+                    memory["last_category"] = category_slug
+                    if subcategory_slug:
+                        memory["last_subcategory"] = subcategory_slug
+                    set_session_memory(session_id, memory)
+                    
                     return {
                         "status": "success",
                         "data": {
@@ -317,6 +605,13 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
                             "end": ""
                         }
                     }
+                
+                # No products found at all
+                memory["last_category"] = category_slug
+                if subcategory_slug:
+                    memory["last_subcategory"] = subcategory_slug
+                set_session_memory(session_id, memory)
+                
                 return {
                     "status": "success",
                     "data": {
@@ -325,28 +620,15 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
                         "end": ""
                     }
                 }
-            if not products:
-                return {
-                    "status": "success",
-                    "data": {
-                        "answer": f"Sorry, there are currently no {subcategory_slug.replace('-', ' ')}s available in this price range. Would you like to see options in a higher price range?",
-                        "products": [],
-                        "end": ""
-                    }
-                }
-            filtered = []
-            for prod in products:
-                price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
-                if price is None:
-                    continue
-                in_range = True
-                if "$lte" in price_filter and price > price_filter["$lte"]:
-                    in_range = False
-                if "$gte" in price_filter and price < price_filter["$gte"]:
-                    in_range = False
-                if in_range:
-                    filtered.append(prod)
+            
+            # Filter products by price
+            filtered = filter_products_by_price(products, price_filter)
             if not filtered:
+                memory["last_category"] = category_slug
+                if subcategory_slug:
+                    memory["last_subcategory"] = subcategory_slug
+                set_session_memory(session_id, memory)
+                
                 return {
                     "status": "success",
                     "data": {
@@ -355,9 +637,13 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
                         "end": ""
                     }
                 }
-            print(f"Products after filtering: {len(filtered)}")
-            for prod in filtered:
-                print(prod)
+            
+            # Update memory and return filtered products
+            memory["last_category"] = category_slug
+            if subcategory_slug:
+                memory["last_subcategory"] = subcategory_slug
+            set_session_memory(session_id, memory)
+            
             return {
                 "status": "success",
                 "data": {
@@ -366,164 +652,216 @@ async def chat_with_agent(message: str, session_id: str, memory: dict):
                     "end": ""
                 }
             }
+
     # Prepare conversation history for OpenAI
     history = memory.get("history", [])
-    # Always start with the system prompt
-    # Only include the last 2 conversation turns (user and assistant) from history
-    last_two_turns = []
-    if history:
-        # Find the last two user/assistant pairs
-        # Each turn is a dict with 'role' and 'content'
-        # We'll take up to the last 4 messages (user, assistant, user, assistant)
-        last_two_turns = history[-4:]
+    
+    # Only include the last 8 messages (4 user-assistant pairs)
+    last_turns = history[-8:] if history else []
+    
     messages = (
-        ([{"role": "system", "content": LOTUS_SYSTEM_PROMPT}]) +
-        last_two_turns +
+        [{"role": "system", "content": LOTUS_SYSTEM_PROMPT}] +
+        last_turns +
         [{"role": "user", "content": message}]
     )
 
     # Prepare function schemas for OpenAI
     function_schemas = [schema for _, schema in tool_registry.values()]
 
-    # Call OpenAI with function-calling enabled
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        functions=function_schemas,
-        function_call="auto"
-    )
-    reply = response.choices[0].message
-
-    # If the LLM wants to call a function/tool
-    if reply.function_call:
-        func_name = reply.function_call.name
-        func_args = reply.function_call.arguments
-        tool_func, _ = tool_registry.get(func_name, (None, None))
-        if tool_func is None:
-            tool_response = {"error": f"Tool '{func_name}' not found."}
-        else:
-            try:
-                parsed_args = json.loads(func_args) if isinstance(func_args, str) else func_args
-
-                # Only refine for get_products_by_category if category is missing
-                if func_name == "get_products_by_category":
-                    if not parsed_args.get("category") and memory.get("last_category"):
-                        # Synthesize a query using last category/subcategory and current message
-                        last_cat = memory["last_category"].replace("-", " ")
-                        last_subcat = memory.get("last_subcategory", "")
-                        if last_subcat:
-                            last_subcat = last_subcat.replace("-", " ")
-                            synthetic_query = f"{last_cat} {last_subcat} {message}"
-                        else:
-                            synthetic_query = f"{last_cat} {message}"
-                        # Re-extract category/subcategory/price from the synthetic query
-                        category_slug, subcategory_slug = extract_category_and_subcategory(synthetic_query)
-                        price_filter = extract_price_filter(synthetic_query)
-                        # Update parsed_args accordingly
-                        parsed_args["category"] = category_slug
-                        if subcategory_slug:
-                            parsed_args["subcategory"] = subcategory_slug
-                        # Optionally update queryStr if you use it
-
-                # Inject auth_token from memory for get_orders if not present
-                if func_name == "get_orders":
-                    if "auth_token" not in parsed_args or not parsed_args["auth_token"]:
-                        parsed_args["auth_token"] = memory.get("auth_token")
-                # Await async tools
-                if asyncio.iscoroutinefunction(tool_func):
-                    tool_response = await tool_func(**parsed_args)
-                else:
-                    tool_response = tool_func(**parsed_args)
-            except Exception as e:
-                tool_response = {"error": str(e)}
-        # Add tool call and result to messages
-        messages.append({
-            "role": "assistant",
-            "content": None,
-            "function_call": {
-                "name": func_name,
-                "arguments": func_args
-            }
-        })
-        messages.append({
-            "role": "function",
-            "name": func_name,
-            "content": str(tool_response)
-        })
-        # Call LLM again to generate the final response
-        response2 = openai.chat.completions.create(
+    try:
+        # Call OpenAI with function-calling enabled
+        response = openai.chat.completions.create(
             model="gpt-4o",
             messages=messages,
+            functions=function_schemas,
+            function_call="auto"
         )
-        final_reply = response2.choices[0].message.content
-        # Extract JSON from the response
-        final_json = extract_json_from_response(final_reply)
-        if final_json is None:
-            # Retry with a stricter prompt
-            retry_prompt = (
-                "Your previous response was not valid JSON. "
-                "Please respond ONLY with a valid JSON object as instructed in the system prompt."
-            )
-            messages.append({"role": "user", "content": retry_prompt})
-            response_retry = openai.chat.completions.create(
+        reply = response.choices[0].message
+
+        # If the LLM wants to call a function/tool
+        if reply.function_call:
+            func_name = reply.function_call.name
+            func_args = reply.function_call.arguments
+            tool_func, _ = tool_registry.get(func_name, (None, None))
+            
+            if tool_func is None:
+                tool_response = {"error": f"Tool '{func_name}' not found."}
+            else:
+                try:
+                    parsed_args = json.loads(func_args) if isinstance(func_args, str) else func_args
+
+                    # Only refine for get_products_by_category if category is missing
+                    if func_name == "get_products_by_category":
+                        if not parsed_args.get("category") and memory.get("last_category"):
+                            # Synthesize a query using last category/subcategory and current message
+                            last_cat = memory["last_category"].replace("-", " ")
+                            last_subcat = memory.get("last_subcategory", "")
+                            if last_subcat:
+                                last_subcat = last_subcat.replace("-", " ")
+                                synthetic_query = f"{last_cat} {last_subcat} {message}"
+                            else:
+                                synthetic_query = f"{last_cat} {message}"
+                            
+                            # Re-extract category/subcategory/price from the synthetic query
+                            category_slug, subcategory_slug = extract_category_and_subcategory(synthetic_query)
+                            price_filter = extract_price_filter(synthetic_query)
+                            
+                            # Update parsed_args accordingly
+                            parsed_args["category"] = category_slug
+                            if subcategory_slug:
+                                parsed_args["subcategory"] = subcategory_slug
+
+                    # Inject auth_token from memory for get_orders if not present
+                    if func_name == "get_orders":
+                        if "auth_token" not in parsed_args or not parsed_args["auth_token"]:
+                            parsed_args["auth_token"] = memory.get("auth_token")
+                    
+                    # Execute tool function
+                    if asyncio.iscoroutinefunction(tool_func):
+                        tool_response = await tool_func(**parsed_args)
+                    else:
+                        tool_response = tool_func(**parsed_args)
+                        
+                except Exception as e:
+                    tool_response = {"error": str(e)}
+            
+            # Add tool call and result to messages
+            messages.append({
+                "role": "assistant",
+                "content": None,
+                "function_call": {
+                    "name": func_name,
+                    "arguments": func_args
+                }
+            })
+            messages.append({
+                "role": "function",
+                "name": func_name,
+                "content": str(tool_response)
+            })
+            
+            # Call LLM again to generate the final response
+            response2 = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
             )
-            final_reply = response_retry.choices[0].message.content
-            print(final_reply)
+            final_reply = response2.choices[0].message.content
+            
+            # Extract JSON from the response
             final_json = extract_json_from_response(final_reply)
-            print(final_json)
-
             if final_json is None:
-                # Still failed, return error
-                return {
-                    "status": "error",
-                    "data": {
-                        "answer": "Sorry, I could not process the response properly.",
-                        "products": [],
-                        "end": ""
+                # Retry with a stricter prompt
+                retry_prompt = (
+                    "Your previous response was not valid JSON. "
+                    "Please respond ONLY with a valid JSON object as instructed in the system prompt."
+                )
+                messages.append({"role": "user", "content": retry_prompt})
+                response_retry = openai.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages,
+                )
+                final_reply = response_retry.choices[0].message.content
+                final_json = extract_json_from_response(final_reply)
+
+                if final_json is None:
+                    # Still failed, return error
+                    final_json = {
+                        "status": "error",
+                        "data": {
+                            "answer": "Sorry, I could not process the response properly.",
+                            "products": [],
+                            "end": ""
+                        }
                     }
-                }
-        # Update memory
-        memory["history"] = messages + [{"role": "assistant", "content": final_reply}]
-        if func_name in ["verify_otp", "sign_in"] and tool_response.get("error") == "0":
-            auth_token = (
-                tool_response.get("auth_token") or
-                (tool_response.get("data", {}).get("auth_token") if isinstance(tool_response.get("data"), dict) else None)
-            )
-            if auth_token:
-                memory["auth_token"] = auth_token
-                memory["phone"] = parsed_args.get("phone")
-                memory["is_authenticated"] = True
-                if "data" in tool_response:
-                    memory["user_data"] = tool_response["data"]
-        # After a successful product search, update memory with last used category/subcategory
-        if category_slug:
-            memory["last_category"] = category_slug
-        if subcategory_slug:
-            memory["last_subcategory"] = subcategory_slug
-        return final_json
-    else:
-        # Normal chat, no tool call - extract JSON from response
-        final_json = extract_json_from_response(reply.content)
-        # If the LLM returned a products list but did not use a tool, ignore it and return an error
-        if final_json and isinstance(final_json, dict):
-            data = final_json.get("data", {})
-            products = data.get("products")
-            # If products exist but no tool was called, treat as hallucination
-            print(products)
-            if products and not reply.function_call:
-                final_json = {
-                    "status": "error",
-                    "data": {
-                        "answer": "Sorry, I could not process the response properly. Please try rephrasing your request.",
-                        "products": [],
-                        "end": ""
+            
+            # Update memory with conversation history
+            memory["history"] = messages + [{"role": "assistant", "content": final_reply}]
+            
+            # Handle authentication success
+            if func_name in ["verify_otp", "sign_in"] and tool_response.get("error") == "0":
+                auth_token = (
+                    tool_response.get("auth_token") or
+                    (tool_response.get("data", {}).get("auth_token") if isinstance(tool_response.get("data"), dict) else None)
+                )
+                if auth_token:
+                    memory["auth_token"] = auth_token
+                    memory["phone"] = parsed_args.get("phone")
+                    memory["is_authenticated"] = True
+                    if "data" in tool_response:
+                        memory["user_data"] = tool_response["data"]
+            
+            # Update category/subcategory memory after successful product search
+            if category_slug:
+                memory["last_category"] = category_slug
+            if subcategory_slug:
+                memory["last_subcategory"] = subcategory_slug
+            
+            # Save updated memory
+            set_session_memory(session_id, memory)
+            
+            return final_json
+            
+        else:
+            # Normal chat, no tool call - extract JSON from response
+            final_json = extract_json_from_response(reply.content)
+            
+            # If the LLM returned a products list but did not use a tool, treat as hallucination
+            if final_json and isinstance(final_json, dict):
+                data = final_json.get("data", {})
+                products = data.get("products")
+                if products and not reply.function_call:
+                    final_json = {
+                        "status": "error",
+                        "data": {
+                            "answer": "Sorry, I could not process the response properly. Please try rephrasing your request.",
+                            "products": [],
+                            "end": ""
+                        }
                     }
-                }
-        # Update memory
-        memory["history"] = messages + [{"role": "assistant", "content": reply.content}]
-        return final_json
+            
+            # Update memory with conversation history
+            memory["history"] = messages + [{"role": "assistant", "content": reply.content}]
+            
+            # Save updated memory
+            set_session_memory(session_id, memory)
+            
+            return final_json
+            
+    except Exception as e:
+        print(f"Error in chat_with_agent: {str(e)}")
+        # Save any memory updates before returning error
+        set_session_memory(session_id, memory)
+        
+        return {
+            "status": "error",
+            "data": {
+                "answer": "Sorry, I encountered an error while processing your request. Please try again.",
+                "products": [],
+                "end": ""
+            }
+        }
+
+
+def filter_products_by_price(products, price_filter):
+    """
+    Helper function to filter products by price range.
+    """
+    filtered = []
+    for prod in products:
+        price = parse_price(prod.get('product_mrp') or prod.get('price') or prod.get('product_price', ''))
+        if price is None:
+            continue
+        
+        in_range = True
+        if "$lte" in price_filter and price > price_filter["$lte"]:
+            in_range = False
+        if "$gte" in price_filter and price < price_filter["$gte"]:
+            in_range = False
+        
+        if in_range:
+            filtered.append(prod)
+    
+    return filtered
 
 
 def get_category_slug(user_query):
