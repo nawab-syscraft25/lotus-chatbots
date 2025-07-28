@@ -142,7 +142,7 @@ async def auth_status_endpoint(session_id: str):
 
 @app.get("/")
 async def read_root(request: Request):
-    return templates.TemplateResponse("chatbot.html", {"request": request})
+    return templates.TemplateResponse("chatbot-sale.html", {"request": request})
 
 # === Run Server ===
 if __name__ == "__main__":
