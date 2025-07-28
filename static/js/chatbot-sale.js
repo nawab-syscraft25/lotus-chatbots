@@ -445,6 +445,7 @@ class ChatBot {
 // Initialize chatbot
 document.addEventListener('DOMContentLoaded', () => {
     window.chatBot = new ChatBot();
+    window.chatBot.openChat();
 });
 
 // External API
