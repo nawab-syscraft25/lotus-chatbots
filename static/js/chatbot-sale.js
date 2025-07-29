@@ -236,7 +236,7 @@ class ChatBot {
                     data = data.response; // Unwrap if response is nested
                 }
 
-                if (data.status === "success" && data.data) {
+                if (data.status === "success" || data.status === "partial" && data.data) {
                     const answer = data.data.answer;
                     const products = data.data.products;
                     const comparison = data.data.comparison;
@@ -272,7 +272,7 @@ class ChatBot {
                     if (data.response) {
                         this.addMessage(data.response, 'bot');
                     } else {
-                        this.addMessage("Sorry, I did not understand that.", 'bot');
+                        this.addMessage("okay, I understood that.", 'bot');
                     }
                 }
             })
